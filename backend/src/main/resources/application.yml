@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: core-banking
+  profiles:
+    active: local
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: core
+        jdbc:
+          batch_size: 25
+  flyway:
+    enabled: true
+    schemas: core
+    default-schema: core
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
