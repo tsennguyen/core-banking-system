@@ -25,6 +25,18 @@ spring:
 
 app:
   business-zone: Asia/Ho_Chi_Minh
+  version: "@project.version@"
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
 
 server:
   port: 8080
