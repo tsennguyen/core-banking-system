@@ -81,4 +81,20 @@ class OpenApiConfigTest {
         assertThat(configWithPlaceholder.coreBankingOpenAPI().getInfo().getVersion())
                 .isEqualTo("0.0.1-SNAPSHOT");
     }
+
+    @Test
+    @DisplayName(
+            "OpenApiCustomizer should register ProblemDetail, ValidationError and BearerAuth"
+                    + " schemas")
+    void openApiCustomizerShouldEnrichOpenApi() {
+        OpenApiConfig config = new OpenApiConfig("1.0.0-DEMO");
+        OpenAPI openAPI = new OpenAPI();
+        config.coreBankingOpenApiCustomizer().customise(openAPI);
+
+        assertThat(openAPI.getComponents()).isNotNull();
+        assertThat(openAPI.getComponents().getSecuritySchemes())
+                .containsKey(OpenApiConfig.SECURITY_SCHEME_NAME);
+        assertThat(openAPI.getComponents().getSchemas())
+                .containsKeys("ProblemDetail", "ValidationError");
+    }
 }

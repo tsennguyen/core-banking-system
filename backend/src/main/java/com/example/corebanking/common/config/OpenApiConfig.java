@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.tags.Tag;
 import java.util.List;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -92,6 +93,28 @@ public class OpenApiConfig {
                                         .description(
                                                 "Giám sát trạng thái sức khỏe và chỉ số hệ"
                                                         + " thống")));
+    }
+
+    @Bean
+    public OpenApiCustomizer coreBankingOpenApiCustomizer() {
+        return openApi -> {
+            if (openApi.getComponents() == null) {
+                openApi.setComponents(new Components());
+            }
+            openApi.getComponents()
+                    .addSecuritySchemes(
+                            SECURITY_SCHEME_NAME,
+                            new SecurityScheme()
+                                    .name(SECURITY_SCHEME_NAME)
+                                    .type(SecurityScheme.Type.HTTP)
+                                    .scheme("bearer")
+                                    .bearerFormat("JWT")
+                                    .description(
+                                            "Nhập JSON Web Token (JWT) theo định dạng: Bearer"
+                                                    + " <token>"))
+                    .addSchemas("ValidationError", createValidationErrorSchema())
+                    .addSchemas("ProblemDetail", createProblemDetailSchema());
+        };
     }
 
     private Schema<?> createValidationErrorSchema() {
