@@ -8,6 +8,8 @@ spring:
       enabled: true
   jpa:
     open-in-view: false
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         default_schema: core
@@ -17,6 +19,9 @@ spring:
     enabled: true
     schemas: core
     default-schema: core
+
+app:
+  business-zone: Asia/Ho_Chi_Minh
 
 server:
   port: 8080

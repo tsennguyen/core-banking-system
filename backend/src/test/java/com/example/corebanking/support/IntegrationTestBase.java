@@ -2,6 +2,7 @@ package com.example.corebanking.support;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -12,6 +13,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * failing the build (ADR-018).
  */
 @Testcontainers(disabledWithoutDocker = true)
+@ActiveProfiles("test")
 @SpringBootTest
 public abstract class IntegrationTestBase {
 

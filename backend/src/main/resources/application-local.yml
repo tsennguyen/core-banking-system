@@ -10,4 +10,4 @@ spring:
   jpa:
     show-sql: false
   flyway:
-    enabled: false
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
