@@ -68,6 +68,21 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("should return 400 ProblemDetail when JSON request body is malformed")
+    void malformedJson_returns400ProblemDetail() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/test-errors/validation")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{ unclosed-json-data"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value("Malformed JSON request body"))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
     @DisplayName("should return 422 ProblemDetail when BusinessRuleException is thrown")
     void businessRuleException_returns422WithErrorCode() throws Exception {
         mockMvc.perform(get("/api/v1/test-errors/business-rule"))
