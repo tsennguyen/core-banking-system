@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -115,6 +117,54 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         log.warn("Malformed JSON request [requestId={}]: {}", requestId, ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(headers).body(problemDetail);
+    }
+
+    /** Handles JPA optimistic locking concurrency failures. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handleOptimisticLockingFailure(
+            OptimisticLockingFailureException ex, WebRequest request) {
+        String requestId = RequestIdFilter.getCurrentRequestId();
+        ErrorCode errorCode = ErrorCode.CONCURRENT_MODIFICATION;
+        HttpStatus status = HttpStatus.valueOf(errorCode.getHttpStatus());
+
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(
+                        status,
+                        "Resource has been modified by another concurrent transaction. Please"
+                                + " refresh and retry.");
+        problemDetail.setTitle(errorCode.getDefaultTitle());
+        problemDetail.setType(URI.create(errorCode.getProblemTypeUri()));
+        problemDetail.setInstance(resolveInstanceUri(request));
+        problemDetail.setProperty(PROPERTY_CODE, errorCode.name());
+        problemDetail.setProperty(PROPERTY_REQUEST_ID, requestId);
+        problemDetail.setProperty(PROPERTY_TIMESTAMP, clock.instant());
+
+        log.warn("Optimistic locking conflict [requestId={}]: {}", requestId, ex.getMessage());
+        return ResponseEntity.status(status).body(problemDetail);
+    }
+
+    /** Handles unique constraint and database integrity violations safely. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex, WebRequest request) {
+        String requestId = RequestIdFilter.getCurrentRequestId();
+        ErrorCode errorCode = ErrorCode.DUPLICATE_RESOURCE;
+        HttpStatus status = HttpStatus.valueOf(errorCode.getHttpStatus());
+
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(
+                        status,
+                        "Data integrity constraint violated: resource or unique field already"
+                                + " exists.");
+        problemDetail.setTitle(errorCode.getDefaultTitle());
+        problemDetail.setType(URI.create(errorCode.getProblemTypeUri()));
+        problemDetail.setInstance(resolveInstanceUri(request));
+        problemDetail.setProperty(PROPERTY_CODE, errorCode.name());
+        problemDetail.setProperty(PROPERTY_REQUEST_ID, requestId);
+        problemDetail.setProperty(PROPERTY_TIMESTAMP, clock.instant());
+
+        log.warn("Data integrity conflict [requestId={}]: {}", requestId, ex.getMessage());
+        return ResponseEntity.status(status).body(problemDetail);
     }
 
     /** Catches and secures all unexpected exceptions, preventing stack trace leaks. */
