@@ -1,0 +1,138 @@
+package com.example.corebanking.account.domain;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.example.corebanking.common.domain.BusinessRuleException;
+import com.example.corebanking.common.domain.ErrorCode;
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class AccountTest {
+
+    @Test
+    @DisplayName("Constructor initializes active account with zero balance and VND currency")
+    void constructor_shouldInitializeValidAccount() {
+        LocalDate openedDate = LocalDate.of(2026, 10, 9);
+        Account account =
+                new Account(
+                        "100000000016",
+                        1L,
+                        new BigDecimal("50000000.00"),
+                        new BigDecimal("100000000.00"),
+                        openedDate);
+
+        assertThat(account.getAccountNumber()).isEqualTo("100000000016");
+        assertThat(account.getCustomerId()).isEqualTo(1L);
+        assertThat(account.getCurrency()).isEqualTo("VND");
+        assertThat(account.getBalance()).isEqualByComparingTo("0.00");
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(account.getOpenedDate()).isEqualTo(openedDate);
+        assertThat(account.getTransactionLimit()).isEqualByComparingTo("50000000.00");
+        assertThat(account.getDailyLimit()).isEqualByComparingTo("100000000.00");
+        assertThat(account.getVersion()).isEqualTo(0L);
+        assertThat(account.isActive()).isTrue();
+        assertThat(account.isClosed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Constructor rejects dailyLimit < transactionLimit or negative limits")
+    void constructor_shouldRejectInvalidLimits() {
+        LocalDate openedDate = LocalDate.of(2026, 10, 9);
+
+        // dailyLimit < transactionLimit
+        assertThatThrownBy(
+                        () ->
+                                new Account(
+                                        "100000000016",
+                                        1L,
+                                        new BigDecimal("50000000.00"),
+                                        new BigDecimal("20000000.00"),
+                                        openedDate))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((BusinessRuleException) ex).getErrorCode())
+                                        .isEqualTo(ErrorCode.VALIDATION_FAILED));
+
+        // transactionLimit <= 0
+        assertThatThrownBy(
+                        () ->
+                                new Account(
+                                        "100000000016",
+                                        1L,
+                                        BigDecimal.ZERO,
+                                        new BigDecimal("100000000.00"),
+                                        openedDate))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((BusinessRuleException) ex).getErrorCode())
+                                        .isEqualTo(ErrorCode.VALIDATION_FAILED));
+    }
+
+    @Test
+    @DisplayName("updateLimits updates limits when valid")
+    void updateLimits_shouldUpdateWhenValid() {
+        Account account =
+                new Account(
+                        "100000000016",
+                        1L,
+                        new BigDecimal("50000000.00"),
+                        new BigDecimal("100000000.00"),
+                        LocalDate.of(2026, 10, 9));
+
+        account.updateLimits(new BigDecimal("60000000.00"), new BigDecimal("120000000.00"));
+
+        assertThat(account.getTransactionLimit()).isEqualByComparingTo("60000000.00");
+        assertThat(account.getDailyLimit()).isEqualByComparingTo("120000000.00");
+    }
+
+    @Test
+    @DisplayName("close() succeeds when balance is zero and transitions to CLOSED")
+    void close_shouldSucceedWhenBalanceZero() {
+        Account account =
+                new Account(
+                        "100000000016",
+                        1L,
+                        new BigDecimal("50000000.00"),
+                        new BigDecimal("100000000.00"),
+                        LocalDate.of(2026, 10, 9));
+
+        Instant closedAt = Instant.parse("2026-10-09T08:00:00Z");
+        account.close(closedAt);
+
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.CLOSED);
+        assertThat(account.getClosedAt()).isEqualTo(closedAt);
+        assertThat(account.isClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("close() throws ACCOUNT_HAS_BALANCE (409) when balance is greater than zero")
+    void close_shouldThrowWhenBalanceGreaterThanZero() throws Exception {
+        Account account =
+                new Account(
+                        "100000000016",
+                        1L,
+                        new BigDecimal("50000000.00"),
+                        new BigDecimal("100000000.00"),
+                        LocalDate.of(2026, 10, 9));
+
+        // Simulate balance > 0
+        Field balanceField = Account.class.getDeclaredField("balance");
+        balanceField.setAccessible(true);
+        balanceField.set(account, new BigDecimal("1500000.00"));
+
+        assertThatThrownBy(() -> account.close(Instant.now()))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((BusinessRuleException) ex).getErrorCode())
+                                        .isEqualTo(ErrorCode.ACCOUNT_HAS_BALANCE))
+                .hasMessageContaining("Account balance must be zero before closing");
+    }
+}

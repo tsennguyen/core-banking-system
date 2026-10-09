@@ -91,4 +91,41 @@ class FlywayMigrationIT extends IntegrationTestBase {
             }
         }
     }
+
+    @Test
+    @DisplayName(
+            "Flyway applies V3 account migration successfully creating account table and sequence")
+    void flywayMigration_shouldApplyV3AccountMigrationSuccessfully() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            // Verify migration version 3 record in core.flyway_schema_history
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs =
+                            statement.executeQuery(
+                                    "SELECT version, description, type, script, success "
+                                            + "FROM core.flyway_schema_history "
+                                            + "WHERE version = '3'")) {
+                assertThat(rs.next())
+                        .as("Migration version 3 should be recorded in flyway_schema_history")
+                        .isTrue();
+                assertThat(rs.getString("version")).isEqualTo("3");
+                assertThat(rs.getString("description")).isEqualTo("account");
+                assertThat(rs.getString("type")).isEqualTo("SQL");
+                assertThat(rs.getString("script")).isEqualTo("V3__account.sql");
+                assertThat(rs.getBoolean("success")).isTrue();
+            }
+
+            // Verify table 'account' exists inside schema 'core'
+            try (ResultSet rs = connection.getMetaData().getTables(null, "core", "account", null)) {
+                assertThat(rs.next()).as("Table 'account' should exist in schema 'core'").isTrue();
+            }
+
+            // Verify sequence 'account_number_seq' produces valid sequence values
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs =
+                            statement.executeQuery("SELECT nextval('core.account_number_seq')")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getLong(1)).isPositive();
+            }
+        }
+    }
 }
