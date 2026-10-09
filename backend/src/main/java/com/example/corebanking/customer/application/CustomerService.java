@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -41,6 +42,7 @@ public class CustomerService {
     private final Clock clock;
     private final Optional<CustomerDeletionGuard> customerDeletionGuard;
 
+    @Autowired
     public CustomerService(
             CustomerRepository customerRepository,
             CustomerCodeGenerator customerCodeGenerator,
