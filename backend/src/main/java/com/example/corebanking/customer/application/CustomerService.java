@@ -13,6 +13,7 @@ import com.example.corebanking.customer.infrastructure.CustomerCodeGenerator;
 import com.example.corebanking.customer.infrastructure.CustomerRepository;
 import com.example.corebanking.customer.infrastructure.CustomerSpecifications;
 import java.time.Clock;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,14 +39,24 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final CustomerCodeGenerator customerCodeGenerator;
     private final Clock clock;
+    private final Optional<CustomerDeletionGuard> customerDeletionGuard;
+
+    public CustomerService(
+            CustomerRepository customerRepository,
+            CustomerCodeGenerator customerCodeGenerator,
+            Clock clock,
+            Optional<CustomerDeletionGuard> customerDeletionGuard) {
+        this.customerRepository = customerRepository;
+        this.customerCodeGenerator = customerCodeGenerator;
+        this.clock = clock;
+        this.customerDeletionGuard = customerDeletionGuard;
+    }
 
     public CustomerService(
             CustomerRepository customerRepository,
             CustomerCodeGenerator customerCodeGenerator,
             Clock clock) {
-        this.customerRepository = customerRepository;
-        this.customerCodeGenerator = customerCodeGenerator;
-        this.clock = clock;
+        this(customerRepository, customerCodeGenerator, clock, Optional.empty());
     }
 
     /**
@@ -174,6 +185,8 @@ public class CustomerService {
                 customerRepository
                         .findByIdAndDeletedAtIsNull(id)
                         .orElseThrow(() -> new ResourceNotFoundException("Customer", id));
+
+        customerDeletionGuard.ifPresent(guard -> guard.validateCanDeleteCustomer(id));
 
         customer.softDelete(clock.instant());
         customerRepository.save(customer);

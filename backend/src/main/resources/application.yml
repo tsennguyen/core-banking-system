@@ -26,6 +26,10 @@ spring:
 app:
   business-zone: Asia/Ho_Chi_Minh
   version: "@project.version@"
+  statistics:
+    balance-tiers:
+      medium-threshold: 10000000.00
+      high-threshold: 100000000.00
 
 springdoc:
   api-docs:

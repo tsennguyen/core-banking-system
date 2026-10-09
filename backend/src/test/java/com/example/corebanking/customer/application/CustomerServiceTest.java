@@ -41,6 +41,7 @@ class CustomerServiceTest {
 
     @Mock private CustomerRepository customerRepository;
     @Mock private CustomerCodeGenerator customerCodeGenerator;
+    @Mock private CustomerDeletionGuard customerDeletionGuard;
 
     private final Clock clock =
             Clock.fixed(Instant.parse("2026-10-09T08:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -49,7 +50,12 @@ class CustomerServiceTest {
 
     @BeforeEach
     void setUp() {
-        customerService = new CustomerService(customerRepository, customerCodeGenerator, clock);
+        customerService =
+                new CustomerService(
+                        customerRepository,
+                        customerCodeGenerator,
+                        clock,
+                        Optional.of(customerDeletionGuard));
     }
 
     private void setId(Customer customer, Long id) {
@@ -302,5 +308,40 @@ class CustomerServiceTest {
         assertThat(customer.isDeleted()).isTrue();
         assertThat(customer.getDeletedAt()).isEqualTo(clock.instant());
         verify(customerRepository).save(customer);
+    }
+
+    @Test
+    @DisplayName("deleteCustomer throws CUSTOMER_HAS_ACTIVE_ACCOUNTS when guard rejects deletion")
+    void deleteCustomer_shouldThrowWhenCustomerHasActiveAccounts() {
+        Customer customer =
+                new Customer(
+                        "CUS0000001",
+                        "Nguyen Van An",
+                        "000123456789",
+                        "an.nguyen@example.com",
+                        "0900000001",
+                        "123 Pho Hue",
+                        "Ha Noi",
+                        LocalDate.of(1990, 1, 15));
+        setId(customer, 1L);
+
+        when(customerRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(customer));
+        org.mockito.Mockito.doThrow(
+                        new BusinessRuleException(
+                                ErrorCode.CUSTOMER_HAS_ACTIVE_ACCOUNTS,
+                                "Customer still has non-closed accounts and cannot be deleted"))
+                .when(customerDeletionGuard)
+                .validateCanDeleteCustomer(1L);
+
+        assertThatThrownBy(() -> customerService.deleteCustomer(1L))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((BusinessRuleException) ex).getErrorCode())
+                                        .isEqualTo(ErrorCode.CUSTOMER_HAS_ACTIVE_ACCOUNTS))
+                .hasMessageContaining("Customer still has non-closed accounts");
+
+        org.mockito.Mockito.verify(customerRepository, org.mockito.Mockito.never())
+                .save(any(Customer.class));
     }
 }
